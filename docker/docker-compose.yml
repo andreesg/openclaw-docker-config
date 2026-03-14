@@ -21,15 +21,41 @@ services:
       - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"
     command: openclaw gateway --bind lan --port 18789
 
-  workspace-sync:
+  workspace-sync-main:
     image: ghcr.io/${GHCR_USERNAME}/openclaw-docker-config/workspace-sync:latest
     restart: unless-stopped
     environment:
-      GIT_WORKSPACE_REPO: ${GIT_WORKSPACE_REPO:-}
+      GIT_WORKSPACE_REPO: ${GIT_WORKSPACE_REPO_MAIN:-}
       GIT_WORKSPACE_BRANCH: ${GIT_WORKSPACE_BRANCH:-auto}
       GIT_WORKSPACE_TOKEN: ${GIT_WORKSPACE_TOKEN:-}
       GIT_WORKSPACE_SYNC_SCHEDULE: ${GIT_WORKSPACE_SYNC_SCHEDULE:-0 4 * * *}
     volumes:
-      - ${OPENCLAW_WORKSPACE_DIR:-/home/openclaw/.openclaw/workspace}:/workspace
+      - ${OPENCLAW_WORKSPACE_DIR:-/home/openclaw/.openclaw/workspace}/main:/workspace
+    profiles:
+      - sync
+
+  workspace-sync-developer:
+    image: ghcr.io/${GHCR_USERNAME}/openclaw-docker-config/workspace-sync:latest
+    restart: unless-stopped
+    environment:
+      GIT_WORKSPACE_REPO: ${GIT_WORKSPACE_REPO_DEVELOPER:-}
+      GIT_WORKSPACE_BRANCH: ${GIT_WORKSPACE_BRANCH:-auto}
+      GIT_WORKSPACE_TOKEN: ${GIT_WORKSPACE_TOKEN:-}
+      GIT_WORKSPACE_SYNC_SCHEDULE: ${GIT_WORKSPACE_SYNC_SCHEDULE:-0 4 * * *}
+    volumes:
+      - ${OPENCLAW_WORKSPACE_DIR:-/home/openclaw/.openclaw/workspace}/developer:/workspace
+    profiles:
+      - sync
+
+  workspace-sync-xsg:
+    image: ghcr.io/${GHCR_USERNAME}/openclaw-docker-config/workspace-sync:latest
+    restart: unless-stopped
+    environment:
+      GIT_WORKSPACE_REPO: ${GIT_WORKSPACE_REPO_XSG:-}
+      GIT_WORKSPACE_BRANCH: ${GIT_WORKSPACE_BRANCH:-auto}
+      GIT_WORKSPACE_TOKEN: ${GIT_WORKSPACE_TOKEN:-}
+      GIT_WORKSPACE_SYNC_SCHEDULE: ${GIT_WORKSPACE_SYNC_SCHEDULE:-0 4 * * *}
+    volumes:
+      - ${OPENCLAW_WORKSPACE_DIR:-/home/openclaw/.openclaw/workspace}/xsg:/workspace
     profiles:
       - sync
