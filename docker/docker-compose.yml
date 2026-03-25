@@ -14,6 +14,10 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       BRAVE_API_KEY: ${BRAVE_API_KEY}
       GH_TOKEN: ${GH_TOKEN:-}
+      GOG_ACCOUNT: ${GOG_ACCOUNT:-}
+      GOG_KEYRING_BACKEND: file
+      GOG_KEYRING_PASSWORD: ${GOG_KEYRING_PASSWORD:-}
+      XDG_CONFIG_HOME: /home/node/.openclaw/.config
     volumes:
       - ${OPENCLAW_CONFIG_DIR:-/home/openclaw/.openclaw}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR:-/home/openclaw/.openclaw/workspace}:/home/node/.openclaw/workspace

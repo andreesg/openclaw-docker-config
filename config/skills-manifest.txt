@@ -17,3 +17,6 @@ conventional-commits
 
 # GitHub — interact with GitHub (issues, PRs, CI runs) via gh CLI
 github
+
+# Gog — Google Workspace (Gmail, Calendar, Drive, etc.) via gogcli
+gog
