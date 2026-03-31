@@ -19,7 +19,7 @@ services:
       - ${OPENCLAW_WORKSPACE_DIR:-/home/openclaw/.openclaw/workspace}:/home/node/.openclaw/workspace
     ports:
       - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"
-    command: openclaw gateway --bind lan --port 18789
+    command: openclaw gateway --bind ${OPENCLAW_GATEWAY_BIND} --port ${OPENCLAW_GATEWAY_PORT}
 
   workspace-sync:
     image: ghcr.io/${GHCR_USERNAME}/openclaw-docker-config/workspace-sync:latest
