@@ -10,16 +10,37 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
       OPENCLAW_GATEWAY_PORT: ${OPENCLAW_GATEWAY_PORT:-18789}
-      OPENCLAW_GATEWAY_BIND: ${OPENCLAW_GATEWAY_BIND:-0.0.0.0}
+      OPENCLAW_GATEWAY_BIND: ${OPENCLAW_GATEWAY_BIND:-127.0.0.1}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       BRAVE_API_KEY: ${BRAVE_API_KEY}
       GH_TOKEN: ${GH_TOKEN:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
     volumes:
       - ${OPENCLAW_CONFIG_DIR:-/home/openclaw/.openclaw}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR:-/home/openclaw/.openclaw/workspace}:/home/node/.openclaw/workspace
+      - /home/openclaw/secrets/client_secret.json:/home/node/.gog-client-secret.json:ro
+      - ${OBSIDIAN_VAULT_DIR:-/home/openclaw/vaults/obsidian-vault}:/home/node/vaults/obsidian-vault:ro
+      - ${OBSIDIAN_VAULT_DIR:-/home/openclaw/vaults/obsidian-vault}/Adyton:/home/node/vaults/obsidian-vault/Adyton:rw
     ports:
       - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"
     command: openclaw gateway --bind lan --port 18789
+
+  obsidian-sync:
+    image: ghcr.io/${GHCR_USERNAME}/openclaw-docker-config/openclaw-gateway:latest
+    restart: unless-stopped
+    environment:
+      HOME: /home/node
+      OBSIDIAN_VAULT: ${OBSIDIAN_VAULT:-Obsidian Vault}
+      OBSIDIAN_SYNC_PASSWORD: ${OBSIDIAN_SYNC_PASSWORD}
+      OBSIDIAN_DEVICE_NAME: ${OBSIDIAN_DEVICE_NAME:-openclaw-prod}
+    volumes:
+      - ${OPENCLAW_CONFIG_DIR:-/home/openclaw/.openclaw}:/home/node/.openclaw
+      - ${OBSIDIAN_VAULT_DIR:-/home/openclaw/vaults/obsidian-vault}:/home/node/vaults/obsidian-vault
+      - ${OBSIDIAN_HEADLESS_CONFIG_DIR:-/home/openclaw/.config/obsidian-headless}:/home/node/.config/obsidian-headless
+    working_dir: /home/node/vaults/obsidian-vault
+    command: sh -c "ob sync-setup --vault \"$$OBSIDIAN_VAULT\" --password \"$$OBSIDIAN_SYNC_PASSWORD\" --device-name \"$$OBSIDIAN_DEVICE_NAME\" && ob sync --continuous"
+    profiles:
+      - obsidian
 
   workspace-sync:
     image: ghcr.io/${GHCR_USERNAME}/openclaw-docker-config/workspace-sync:latest

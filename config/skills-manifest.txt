@@ -3,17 +3,7 @@
 # To add a skill: add its ClawHub name here, rebuild and deploy.
 # To remove a skill: remove the line, then manually remove from workspace/skills/ on VPS.
 
-# YouTube — transcript fetching, video search, channel lookup. No API key needed.
-yt
-
-# Agent Browser — headless browser for JS-heavy/paywalled pages
-agent-browser
-
-# System Monitor — CPU/RAM/GPU status check from Telegram
-system-monitor
-
 # Conventional Commits — format commit messages properly
 conventional-commits
 
-# GitHub — interact with GitHub (issues, PRs, CI runs) via gh CLI
-github
+readwise-official

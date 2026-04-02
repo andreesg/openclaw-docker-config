@@ -1,15 +1,26 @@
 {
   "gateway": {
     "mode": "local",
-    "port": 18789
+    "port": 18789,
+    "trustedProxies": ["172.18.0.0/16"],
+    "auth": {
+      "allowTailscale": true
+    },
+    "controlUi": {
+      "enabled": true,
+      "basePath": "/openclaw",
+      "allowedOrigins": ["https://openclaw-prod.taildc9a7d.ts.net"],
+      "allowInsecureAuth": true
+    }
   },
 
   "channels": {
     "telegram": {
       "enabled": true,
       "botToken": "${TELEGRAM_BOT_TOKEN}",
-      "dmPolicy": "pairing",
-      "groupPolicy": "allowlist",
+      "dmPolicy": "allowlist",
+      "allowFrom": ["7273075209"],
+      "groupPolicy": "disabled",
       "streamMode": "partial"
     }
   },
@@ -25,7 +36,27 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "anthropic/claude-opus-4-6"
+        "primary": "openrouter/minimax/minimax-m2.5",
+        "fallbacks": [
+          "openrouter/google/gemini-3-flash-preview",
+          "openrouter/anthropic/claude-sonnet-4.6"
+        ]
+      },
+      "models": {
+        "openrouter/minimax/minimax-m2.5": { "alias": "minimax" },
+        "openrouter/google/gemini-3-flash-preview": { "alias": "gemini" },
+        "openrouter/google/gemini-2.5-flash-lite": { "alias": "gemini-lite" },
+        "openrouter/anthropic/claude-sonnet-4.6": { "alias": "sonnet" }
+      },
+      "heartbeat": {
+        "every": "30m",
+        "model": "openrouter/google/gemini-2.5-flash-lite",
+        "target": "last",
+        "activeHours": {
+          "start": "06:00",
+          "end": "22:00",
+          "timezone": "Europe/Berlin"
+        }
       },
       "compaction": {
         "mode": "safeguard"
