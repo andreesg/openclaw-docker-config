@@ -11,8 +11,9 @@
     "telegram": {
       "enabled": true,
       "botToken": "${TELEGRAM_BOT_TOKEN}",
-      "dmPolicy": "pairing",
-      "groupPolicy": "allowlist",
+      "dmPolicy": "allowlist",
+      "allowFrom": ["tg:${TELEGRAM_USER_ID}"],
+      "groupPolicy": "disabled",
       "streaming": "partial"
     }
   },
