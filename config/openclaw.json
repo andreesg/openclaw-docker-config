@@ -43,7 +43,10 @@
 
   "commands": {
     "native": "auto",
-    "nativeSkills": "auto"
+    "nativeSkills": "auto",
+    "allowFrom": {
+      "telegram": ["tg:${TELEGRAM_USER_ID}"]
+    }
   },
 
   "messages": {
