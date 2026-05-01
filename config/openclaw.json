@@ -1,4 +1,8 @@
 {
+  "env": {
+    "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}"
+  },
+
   "gateway": {
     "mode": "local",
     "port": 18789,
