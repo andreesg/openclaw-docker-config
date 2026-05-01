@@ -1,8 +1,4 @@
 {
-  "env": {
-    "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}"
-  },
-
   "gateway": {
     "mode": "local",
     "port": 18789,
@@ -62,7 +58,7 @@
 
   "auth": {
     "profiles": {
-      "openrouter:default": {
+      "openrouter:manual": {
         "provider": "openrouter",
         "mode": "api_key"
       }
