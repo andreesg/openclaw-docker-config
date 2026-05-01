@@ -29,7 +29,10 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "anthropic/claude-opus-4-6"
+        "primary": "openrouter/openrouter/auto"
+      },
+      "models": {
+        "openrouter/openrouter/auto": {}
       },
       "compaction": {
         "mode": "safeguard"
@@ -42,7 +45,7 @@
   },
 
   "commands": {
-    "native": "auto",
+    "native": false,
     "nativeSkills": "auto",
     "allowFrom": {
       "telegram": ["tg:${TELEGRAM_USER_ID}"]
@@ -55,13 +58,10 @@
 
   "auth": {
     "profiles": {
-      "anthropic:manual": {
-        "provider": "anthropic",
-        "mode": "token"
+      "openrouter:default": {
+        "provider": "openrouter",
+        "mode": "api_key"
       }
-    },
-    "order": {
-      "anthropic": ["anthropic:manual"]
     }
   },
 
