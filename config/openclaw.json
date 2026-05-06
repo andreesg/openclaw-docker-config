@@ -50,17 +50,17 @@
       "models": {
         "openai/gpt-5.3-chat": {
           "params": {
-            "transport": "sse"
+            "transport": "auto"
           }
         },
         "openai/gpt-5.2": {
           "params": {
-            "transport": "sse"
+            "transport": "auto"
           }
         },
         "openai/gpt-5.4-mini": {
           "params": {
-            "transport": "sse"
+            "transport": "auto"
           }
         },
         "openrouter/openrouter/auto": {}
