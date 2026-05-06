@@ -32,6 +32,14 @@
         "primary": "openai/gpt-5.3-chat",
         "fallbacks": ["openai/gpt-5.2", "openai/gpt-5.4-mini"]
       },
+      "imageGenerationModel": {
+        "primary": "openai/gpt-image-2",
+        "fallbacks": ["openrouter/openrouter/auto"]
+      },
+      "pdfModel": {
+        "primary": "openai/gpt-5.4-mini",
+        "fallbacks": ["openrouter/openrouter/auto"]
+      },
       "models": {
         "openai/gpt-5.3-chat": {
           "params": {
