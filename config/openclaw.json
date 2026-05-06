@@ -26,17 +26,41 @@
     }
   },
 
+  "models": {
+    "providers": {
+      "openai": {
+        "apiKey": "${OPENAI_API_KEY}"
+      }
+    }
+  },
+
   "agents": {
     "defaults": {
       "model": {
-        "primary": "openai/gpt-5.4-mini"
+        "primary": "openai/gpt-5.3-chat",
+        "fallbacks": [
+          "openai/gpt-5.2",
+          "openai/gpt-5.4-mini",
+          "openrouter/openrouter/auto"
+        ]
       },
       "models": {
+        "openai/gpt-5.3-chat": {
+          "params": {
+            "transport": "sse"
+          }
+        },
+        "openai/gpt-5.2": {
+          "params": {
+            "transport": "sse"
+          }
+        },
         "openai/gpt-5.4-mini": {
           "params": {
-            "transport": "auto"
+            "transport": "sse"
           }
-        }
+        },
+        "openrouter/openrouter/auto": {}
       },
       "compaction": {
         "mode": "safeguard"
