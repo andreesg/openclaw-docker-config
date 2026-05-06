@@ -14,6 +14,7 @@ services:
       BRAVE_API_KEY: ${BRAVE_API_KEY}
       GH_TOKEN: ${GH_TOKEN:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     volumes:
       - ${OPENCLAW_CONFIG_DIR:-/home/openclaw/.openclaw}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR:-/home/openclaw/.openclaw/workspace}:/home/node/.openclaw/workspace

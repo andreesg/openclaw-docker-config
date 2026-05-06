@@ -48,9 +48,21 @@
         ]
       },
       "models": {
-        "openai/gpt-5.3-chat": {},
-        "openai/gpt-5.2": {},
-        "openai/gpt-5.4-mini": {},
+        "openai/gpt-5.3-chat": {
+          "params": {
+            "transport": "sse"
+          }
+        },
+        "openai/gpt-5.2": {
+          "params": {
+            "transport": "sse"
+          }
+        },
+        "openai/gpt-5.4-mini": {
+          "params": {
+            "transport": "sse"
+          }
+        },
         "openrouter/openrouter/auto": {}
       },
       "compaction": {
