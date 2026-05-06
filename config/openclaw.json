@@ -29,9 +29,15 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "openrouter/openrouter/auto"
+        "primary": "openai/gpt-5.4-mini",
+        "fallbacks": ["openrouter/openrouter/auto"]
       },
       "models": {
+        "openai/gpt-5.4-mini": {
+          "params": {
+            "transport": "auto"
+          }
+        },
         "openrouter/openrouter/auto": {}
       },
       "compaction": {
@@ -41,7 +47,17 @@
       "subagents": {
         "maxConcurrent": 4
       }
-    }
+    },
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "identity": {
+          "name": "Coter",
+          "emoji": "🔘"
+        }
+      }
+    ]
   },
 
   "commands": {
