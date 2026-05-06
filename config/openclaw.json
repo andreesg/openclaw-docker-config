@@ -26,17 +26,6 @@
     }
   },
 
-  "models": {
-    "providers": {
-      "openai": {
-        "apiKey": "${OPENAI_API_KEY}"
-      },
-      "openrouter": {
-        "apiKey": "${OPENROUTER_API_KEY}"
-      }
-    }
-  },
-
   "agents": {
     "defaults": {
       "model": {

@@ -4,17 +4,17 @@ services:
     env_file: .env
     restart: unless-stopped
     environment:
-      HOME: /home/node
-      NODE_ENV: production
-      TERM: xterm-256color
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY-}
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_USER_ID: ${TELEGRAM_USER_ID}
       BRAVE_API_KEY: ${BRAVE_API_KEY}
       GH_TOKEN: ${GH_TOKEN:-}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      HOME: /home/node
+      NODE_ENV: production
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_USER_ID: ${TELEGRAM_USER_ID}
+      TERM: xterm-256color
     volumes:
       - ${OPENCLAW_CONFIG_DIR:-/home/openclaw/.openclaw}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR:-/home/openclaw/.openclaw/workspace}:/home/node/.openclaw/workspace
