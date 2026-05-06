@@ -30,15 +30,13 @@
     "defaults": {
       "model": {
         "primary": "openai/gpt-5.4-mini",
-        "fallbacks": ["openrouter/openrouter/auto"]
       },
       "models": {
         "openai/gpt-5.4-mini": {
           "params": {
             "transport": "auto"
           }
-        },
-        "openrouter/openrouter/auto": {}
+        }
       },
       "compaction": {
         "mode": "safeguard"
