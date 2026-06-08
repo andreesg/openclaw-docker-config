@@ -41,6 +41,17 @@ resource "hcloud_firewall" "main" {
     }
   }
 
+  # Allow additional public TCP ports
+  dynamic "rule" {
+    for_each = var.additional_tcp_ports
+    content {
+      direction  = "in"
+      protocol   = "tcp"
+      port       = tostring(rule.value)
+      source_ips = ["0.0.0.0/0", "::/0"]
+    }
+  }
+
   # Allow Tailscale UDP (if enabled)
   dynamic "rule" {
     for_each = var.enable_tailscale ? [1] : []

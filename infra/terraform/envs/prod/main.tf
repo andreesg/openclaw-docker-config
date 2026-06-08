@@ -57,24 +57,26 @@ provider "hcloud" {
 module "vps" {
   source = "../../modules/hetzner-vps"
 
-  project_name        = var.project_name
-  environment         = "prod"
-  ssh_key_fingerprint = var.ssh_key_fingerprint
-  ssh_allowed_cidrs   = var.ssh_allowed_cidrs
-  server_type         = var.server_type
-  server_location     = var.server_location
-  server_enable_ipv4  = var.server_enable_ipv4
-  app_user            = var.app_user
-  app_directory       = var.app_directory
+  project_name         = var.project_name
+  environment          = "prod"
+  ssh_key_fingerprint  = var.ssh_key_fingerprint
+  ssh_allowed_cidrs    = var.ssh_allowed_cidrs
+  additional_tcp_ports = var.additional_tcp_ports
+  server_type          = var.server_type
+  server_location      = var.server_location
+  server_enable_ipv4   = var.server_enable_ipv4
+  app_user             = var.app_user
+  app_directory        = var.app_directory
 
   # Security configuration
   enable_tailscale = var.enable_tailscale
 
   cloud_init_user_data = templatefile("${path.module}/../../../cloud-init/user-data.yml.tpl", {
-    app_user           = var.app_user
-    app_directory      = var.app_directory
-    enable_tailscale   = var.enable_tailscale
-    tailscale_auth_key = var.tailscale_auth_key
+    app_user             = var.app_user
+    app_directory        = var.app_directory
+    enable_tailscale     = var.enable_tailscale
+    tailscale_auth_key   = var.tailscale_auth_key
+    additional_tcp_ports = var.additional_tcp_ports
   })
 }
 

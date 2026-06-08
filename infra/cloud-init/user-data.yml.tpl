@@ -93,6 +93,9 @@ runcmd:
   - ufw default deny incoming
   - ufw default allow outgoing
   - ufw allow ssh
+%{ for port in additional_tcp_ports ~}
+  - ufw allow ${port}/tcp comment 'Additional TCP port ${port}'
+%{ endfor ~}
 %{ if enable_tailscale ~}
   - ufw allow 41641/udp comment 'Tailscale'
 %{ endif ~}
