@@ -27,6 +27,10 @@ variable "ssh_allowed_cidrs" {
   default     = []
 }
 
+# ============================================
+# Firewall Configuration
+# ============================================
+
 variable "additional_tcp_ports" {
   description = "Additional TCP ports to expose publicly through the Hetzner Cloud Firewall"
   type        = set(number)
