@@ -27,6 +27,17 @@ variable "ssh_allowed_cidrs" {
   default     = []
 }
 
+variable "additional_tcp_ports" {
+  description = "Additional TCP ports to expose publicly through the Hetzner Cloud Firewall"
+  type        = set(number)
+  default     = []
+
+  validation {
+    condition     = alltrue([for port in var.additional_tcp_ports : port >= 1 && port <= 65535 && port != 22])
+    error_message = "additional_tcp_ports must contain TCP port numbers from 1 to 65535, excluding 22 which is managed by ssh_allowed_cidrs."
+  }
+}
+
 # ============================================
 # Server Configuration
 # ============================================

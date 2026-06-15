@@ -186,6 +186,15 @@ See [Hetzner server types](https://www.hetzner.com/cloud#pricing).
 
 By default SSH (port 22) is open to `0.0.0.0/0`. Restrict this before going to production.
 
+To expose additional public TCP services through the Hetzner Cloud Firewall, set `TF_VAR_additional_tcp_ports`:
+
+```bash
+# In config/inputs.sh
+export TF_VAR_additional_tcp_ports='[80,443]'
+```
+
+These ports are opened in both the Hetzner Cloud Firewall and the server's UFW firewall. They are exposed to `0.0.0.0/0` and `::/0`. Port 22 remains managed separately by `TF_VAR_ssh_allowed_cidrs`.
+
 **Option A — Restrict to your IP:**
 ```bash
 # In config/inputs.sh
@@ -545,6 +554,8 @@ See [SECURITY.md](SECURITY.md) for the full security policy and threat model.
 
 - Gateway binds to `127.0.0.1` (localhost only) — never exposed directly
 - Access via SSH tunnel or Tailscale Serve
+- `TF_VAR_additional_tcp_ports` opens ports in both the Hetzner Cloud Firewall and UFW on the VPS
+- Use `TF_VAR_additional_tcp_ports` only for services that should be publicly reachable
 - Review `infra/terraform/modules/hetzner-vps/main.tf` for the full firewall rule set
 
 ### API Keys

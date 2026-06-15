@@ -51,6 +51,15 @@ export TF_VAR_ssh_key_fingerprint="CHANGE_ME_your-ssh-key-fingerprint"
 # export SSH_KEY="$HOME/.ssh/your_key_name"
 
 # ============================================
+# FIREWALL CONFIGURATION
+# ============================================
+
+# Additional public TCP ports to open in the Hetzner Cloud Firewall.
+# Examples: [80,443] for HTTP/HTTPS, [3978] for Microsoft Teams bot callbacks.
+# Port 22 is managed separately by TF_VAR_ssh_allowed_cidrs.
+export TF_VAR_additional_tcp_ports='[]'
+
+# ============================================
 # SERVER CONNECTION
 # ============================================
 # When using Tailscale (ssh_allowed_cidrs='[]'), scripts can't reach the public
