@@ -1,343 +1,632 @@
-# OpenClaw Docker Config
+# OpenClaw Terraform Hetzner
 
-Docker configuration and application setup for OpenClaw. Companion repository to [openclaw-terraform-hetzner](https://github.com/andreesg/openclaw-terraform-hetzner).
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Terraform](https://img.shields.io/badge/Terraform-1.5+-purple.svg)](https://www.terraform.io/)
 
-**Note:** This is a minimal, generic configuration with only essential skills activated. You're encouraged to customize it by adding [ClawHub skills](https://clawhub.ai/) or creating your own custom skills (see [Working with Skills](#working-with-skills)).
+Terraform modules for deploying [OpenClaw](https://github.com/openclaw/openclaw) on Hetzner Cloud. Includes VPS provisioning, firewall configuration, cloud-init automation, and deployment tooling.
 
-```
-┌──────────────┐                        ┌──────────────────────┐
-│   Laptop     │──── git push ─────────▶│   GitHub             │
-│   (develop)  │                        │   (openclaw-config)  │
-│              │                        └──────────────────────┘
-│              │  
-│              │   build-and-push.sh    ┌──────────────────────┐
-│              │───────────────────────▶│   GHCR               │
-│              │                        │   :latest  :abc1234  │
-│              │                        └──────────────────────┘
-│              │
-│              │  make push-config      ┌──────────────────────┐
-│              │  make push-env         │   Hetzner VPS        │
-│              │──── (infra repo) ─────▶│   ┌────────────────┐ │
-│              │  make deploy           │   │ Docker         │ │
-└──────────────┘                        │   │ openclaw-gw    │ │
-                                        │   └────────────────┘ │
-                                        │   :18789 (loopback)  │
-                                        └──────────────────────┘
-```
+## Overview
+
+This repository provides infrastructure-as-code for deploying OpenClaw—an open-source AI coding assistant—on a Hetzner Cloud VPS. The setup includes:
+
+- Modular Terraform structure with remote S3 state backend
+- Automated server provisioning via cloud-init
+- Firewall configuration (UFW + Hetzner Cloud Firewall)
+- Deployment scripts for application lifecycle management
+- Backup and restore functionality
+- SSH tunneling for secure gateway access
+
+For information about OpenClaw itself, see the [OpenClaw documentation](https://docs.openclaw.ai/).
 
 ## Prerequisites
 
-- Docker and Docker Compose on the VPS
-- SSH access to the VPS (`ssh openclaw@VPS_IP`)
-- The infra repo (`openclaw-terraform-hetzner`) set up with `config/inputs.sh` pointing `CONFIG_DIR` to this repo
-- API keys (see `docker/.env.example` for the full list; secrets live in the infra repo's `secrets/openclaw.env`)
+1. **Terraform** >= 1.5 ([Installation Guide](https://developer.hashicorp.com/terraform/install))
+2. **Hetzner Cloud Account** with API token ([Console](https://console.hetzner.cloud/))
+3. **Hetzner Object Storage** for Terraform state (optional but recommended)
+4. **SSH Key** at `~/.ssh/id_rsa.pub` or custom path (see [SSH Configuration](#ssh-configuration))
+5. **Docker configuration repo**: [openclaw-docker-config](https://github.com/andreesg/openclaw-docker-config)
 
-## How This Repo Connects to the VPS
+## Quick Start
 
-This repo is **not cloned on the VPS**. Instead, the infra repo's scripts copy
-specific files from your local checkout to the VPS:
+### 1. Clone Repository
 
-| What | Pushed by | Lands at (VPS) |
-|------|-----------|----------------|
-| `docker/docker-compose.yml` | `make bootstrap` (once) | `~/openclaw/docker-compose.yml` |
-| `config/*` (openclaw.json, etc.) | `make push-config` | `~/.openclaw/` |
-| Docker image | `make deploy` (pulls from GHCR) | Docker image cache |
-| Secrets | `make push-env` | `~/openclaw/.env` |
-
-## First-Time Setup
-
-> Provisioning and bootstrap are handled by the infra repo. See its README.
-
-1. **In the infra repo**, set `CONFIG_DIR` in `config/inputs.sh` to point to this repo's directory
-2. **Log in to GHCR** (one-time, on your laptop):
-   ```bash
-   echo "$GHCR_TOKEN" | docker login ghcr.io -u $GHCR_USERNAME --password-stdin
-   ```
-3. **Build and push the Docker image**:
-   ```bash
-   bash scripts/build-and-push.sh
-   ```
-4. Run `make bootstrap` from the infra repo — copies `docker-compose.yml`, config, and secrets to VPS
-5. Run `make deploy` from the infra repo — pulls the Docker image from GHCR and starts the container
-6. **Complete Telegram pairing:** open Telegram, find your bot, send `/start`
-
-## Config Change Workflow
-
-There are two types of changes, and they have different workflows:
-
-### Changing config (openclaw.json, skills, hooks)
-
-Config files are pushed to the VPS via SCP — no image rebuild needed.
-
-```
-edit → validate → commit → push → make push-config (infra repo)
+```bash
+git clone https://github.com/andreesg/openclaw-terraform-hetzner.git
+cd openclaw-terraform-hetzner
 ```
 
-1. Edit files in `config/`, `skills/`, or `hooks/`
-2. Validate: `bash scripts/validate-config.sh`
-3. Commit and push to GitHub
-4. From the **infra repo**: `make push-config` (SCPs config to VPS and restarts)
+### 2. Configure Secrets
 
-### Changing the Docker image (Dockerfile, OpenClaw version)
-
-Image changes require a rebuild and push to GHCR.
-
-```
-edit → commit → push → build-and-push.sh → make deploy (infra repo)
+```bash
+cp config/inputs.example.sh config/inputs.sh
+vim config/inputs.sh  # Add your Hetzner API token and configuration
 ```
 
-1. Edit `docker/Dockerfile` (e.g. bump `OPENCLAW_VERSION`, add a binary)
-2. Commit and push to GitHub
-3. Build and push image: `bash scripts/build-and-push.sh`
-4. From the **infra repo**: `make deploy` (pulls new image from GHCR and restarts)
+Required variables in `config/inputs.sh`:
+- `HCLOUD_TOKEN` - Hetzner Cloud API token
+- `TF_VAR_ssh_key_fingerprint` - SSH key fingerprint from Hetzner
+- `CONFIG_DIR` - Path to your openclaw-docker-config repository
+- `SERVER_IP` - Address that scripts use to SSH into the VPS. Set to `openclaw-prod` when using Tailscale (MagicDNS hostname, stable across rebuilds). Leave unset to auto-detect from Terraform output (only works when public SSH is open).
 
-## Working with Skills
+> **Tailscale (optional, recommended):** Set `TF_VAR_enable_tailscale=true` and `TF_VAR_tailscale_auth_key` to install Tailscale automatically on first boot — it lets you remove SSH from the public internet entirely. See [Firewall Rules](#firewall-rules).
 
-This repository includes a minimal set of generic skills in `config/skills-manifest.txt`. You can extend OpenClaw by adding ClawHub skills or creating custom skills.
+### 3. Deploy Infrastructure
 
-### ClawHub Skills
+```bash
+source config/inputs.sh
+make init
+make plan
+make apply
+```
 
-[ClawHub](https://clawhub.ai/) is the community skill registry for OpenClaw. To add a ClawHub skill:
+### 4. Bootstrap OpenClaw
 
-1. **Find the skill** at [clawhub.ai](https://clawhub.ai/) (e.g., `pdf`, `ms-office-suite`, `jira`)
-2. **Add to manifest**: Edit `config/skills-manifest.txt` and add the skill name
-   ```
-   # PDF processing
-   pdf
-   ```
-3. **Rebuild and deploy**:
+```bash
+make bootstrap
+make deploy
+```
+
+### 5. Verify Deployment
+
+```bash
+make status
+make logs
+```
+
+Access the gateway via SSH tunnel:
+```bash
+make tunnel  # Opens tunnel on localhost:18789
+```
+
+If you enabled Tailscale, confirm it connected before closing public SSH access:
+```bash
+make tailscale-status  # node should appear as connected
+make tailscale-ip      # note your Tailscale IP (e.g. 100.x.x.x)
+```
+
+## Architecture
+
+```
+┌─────────────────┐
+│   Your Laptop   │
+│                 │
+│  ┌───────────┐  │         ┌─────────────────────┐
+│  │ Terraform │──┼────────>│  Hetzner Cloud VPS  │
+│  └───────────┘  │         │                     │
+│                 │         │  ┌──────────────┐   │
+│  ┌───────────┐  │         │  │ Docker       │   │
+│  │  Config   │──┼────────>│  │ OpenClaw     │   │
+│  │   Repo    │  │         │  └──────────────┘   │
+│  └───────────┘  │         │                     │
+└─────────────────┘         │  Firewall: SSH only │
+                            └─────────────────────┘
+                                      │
+                                      v
+                            ┌─────────────────────┐
+                            │ Hetzner Object      │
+                            │ Storage (state)     │
+                            └─────────────────────┘
+```
+
+### Components
+
+| Component | Purpose | Location |
+|-----------|---------|----------|
+| **infra/terraform/** | Infrastructure definitions | This repo |
+| **deploy/** | Deployment automation | This repo |
+| **docker/** | Container configuration | [openclaw-docker-config](https://github.com/andreesg/openclaw-docker-config) |
+| **config/** | OpenClaw configuration | [openclaw-docker-config](https://github.com/andreesg/openclaw-docker-config) |
+
+## Usage
+
+### Makefile Targets
+
+**Infrastructure:**
+```bash
+make init       # Initialize Terraform
+make plan       # Show infrastructure changes
+make apply      # Apply infrastructure changes
+make destroy    # Destroy all infrastructure
+make output     # Show Terraform outputs
+```
+
+**Deployment:**
+```bash
+make bootstrap  # Initial OpenClaw setup
+make deploy     # Pull latest image and restart
+make status     # Check deployment status
+make logs       # Stream container logs
+```
+
+**Operations:**
+```bash
+make ssh        # SSH to VPS as openclaw user
+make tunnel     # Create SSH tunnel to gateway
+make backup-now # Trigger backup immediately
+make restore    # Restore from backup (BACKUP=filename)
+```
+
+**Tailscale:**
+```bash
+make tailscale-status   # Check Tailscale status (uses public IP — run before closing port 22)
+make tailscale-ip       # Get Tailscale IP (uses public IP — run before closing port 22)
+make tailscale-up       # Manually authenticate Tailscale
+```
+
+**Configuration:**
+```bash
+make push-env    # Push environment variables
+make push-config # Push OpenClaw configuration
+make setup-auth  # Configure Claude subscription auth
+```
+
+## Configuration
+
+### SSH Configuration
+
+By default, scripts use your SSH agent or the default key names (`id_rsa`, `id_ed25519`). If your key has a different name, set `SSH_KEY` in `config/inputs.sh`:
+
+```bash
+export SSH_KEY="$HOME/.ssh/your_key_name"
+```
+
+
+### Server Sizing
+
+Default: CX23 (2 vCPU, 4GB RAM)
+
+To change server type, add to `config/inputs.sh`:
+```bash
+export TF_VAR_server_type="cx32"  # 4 vCPU, 8GB RAM
+```
+
+See [Hetzner server types](https://www.hetzner.com/cloud#pricing).
+
+### Firewall Rules
+
+By default SSH (port 22) is open to `0.0.0.0/0`. Restrict this before going to production.
+
+To expose additional public TCP services through the Hetzner Cloud Firewall, set `TF_VAR_additional_tcp_ports`:
+
+```bash
+# In config/inputs.sh
+export TF_VAR_additional_tcp_ports='[80,443]'
+```
+
+These ports are opened in both the Hetzner Cloud Firewall and the server's UFW firewall. They are exposed to `0.0.0.0/0` and `::/0`. Port 22 remains managed separately by `TF_VAR_ssh_allowed_cidrs`.
+
+**Option A — Restrict to your IP:**
+```bash
+# In config/inputs.sh
+export TF_VAR_ssh_allowed_cidrs='["203.0.113.50/32"]'
+```
+
+Then apply:
+```bash
+source config/inputs.sh && make plan && make apply
+```
+
+**Option B — Tailscale VPN (recommended):**
+
+Tailscale creates a private WireGuard mesh so SSH is reachable only from devices on your tailnet — the public IP has no open SSH port.
+
+1. Get an auth key at [login.tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys) — use **reusable + pre-authorized** keys, not ephemeral.
+
+   > **Auth key expiry:** Reusable Tailscale auth keys expire after 90 days by default.
+   > Generate a fresh key at login.tailscale.com/admin/settings/keys
+   > and update `TF_VAR_tailscale_auth_key` in `config/inputs.sh`.
+
+2. Add to `config/inputs.sh`:
    ```bash
-   bash scripts/build-and-push.sh
-   # Then from infra repo:
-   make deploy
+   export TF_VAR_enable_tailscale=true
+   export TF_VAR_tailscale_auth_key="tskey-auth-xxxxxxxxxxxxx"
    ```
 
-The `entrypoint.sh` script auto-installs skills from the manifest on container startup via `clawhub install`.
-
-### Custom Skills
-
-Custom skills are user-defined commands or workflows. To create one:
-
-1. **Create the skill directory**:
+3. Deploy. Tailscale is installed automatically on first boot. Then verify it's working before closing public access:
    ```bash
-   mkdir -p skills/my-skill
+   source config/inputs.sh && make plan && make apply
+   make tailscale-status          # confirm node is connected
+   make tailscale-ip              # note your Tailscale IP
+   ssh openclaw@<tailscale-ip>  # confirm Tailscale SSH works
    ```
 
-2. **Write the skill manifest** (`skills/my-skill/skill.json`):
+4. Remove public SSH and point scripts at the Tailscale hostname:
+   ```bash
+   # In config/inputs.sh
+   export TF_VAR_ssh_allowed_cidrs='[]'
+   export SERVER_IP="openclaw-prod"   # Tailscale MagicDNS — stable across rebuilds
+   source config/inputs.sh && make plan && make apply
+   ```
+
+   > **Make sure to always source `config/inputs.sh` before running `make` commands so the updated `SERVER_IP` is used.**
+
+5. **Update `openclaw.json`** in your openclaw-docker-config repo to enable Tailscale-based gateway auth:
    ```json
    {
-     "name": "my-skill",
-     "version": "1.0.0",
-     "description": "My custom skill",
-     "commands": {
-       "my-command": {
-         "handler": "my-command.sh"
+     "gateway": {
+       "auth": {
+         "allowTailscale": true
+       },
+       "controlUi": {
+         "allowInsecureAuth": true
+       }
+     }
+   }
+   ```
+   Then push and restart:
+   ```bash
+   make push-config deploy
+   ```
+
+   > `allowTailscale` authenticates dashboard users via Tailscale identity headers.
+   >
+   > `allowInsecureAuth` lets the control UI authenticate over plain HTTP — safe because it's only availale in your private tailnet.
+
+After step 5, all `make` commands (`make ssh`, `make deploy`, `make status`, etc.) connect via `openclaw-prod` on your tailnet — no IP to track down.
+
+> **Recovery:** If Tailscale fails to connect, check status with `make tailscale-status`. 
+> For persistent issues, you can delete the Hetzner Cloud Firewall via the console or re-run 
+> `make apply` after fixing the configuration.
+
+### Remote State Backend
+
+The S3 backend configuration is commented out by default in `infra/terraform/envs/prod/main.tf`. To enable:
+
+1. Create Hetzner Object Storage bucket
+2. Set credentials in `config/inputs.sh`:
+   ```bash
+   export AWS_ACCESS_KEY_ID="your-access-key"
+   export AWS_SECRET_ACCESS_KEY="your-secret-key"
+   ```
+3. Uncomment backend block in `main.tf` and update endpoint URL
+4. Run `terraform init -migrate-state`
+
+### Switching AI Providers
+
+OpenClaw supports multiple AI providers. This setup defaults to Anthropic Claude, but you can switch to other providers by modifying the configuration in [openclaw-docker-config](https://github.com/andreesg/openclaw-docker-config).
+
+**Supported providers:**
+- Anthropic Claude (Opus, Sonnet, Haiku)
+- OpenAI (GPT-4, GPT-3.5, o1)
+- DeepSeek (V3, R1)
+- Local models (via Ollama or LM Studio)
+
+**To switch providers:**
+
+1. Update `openclaw.json` in the config repo:
+   ```json
+   {
+     "agents": {
+       "defaults": {
+         "model": {
+           "primary": "openai/gpt-4"
+         }
+       }
+     },
+     "auth": {
+       "profiles": {
+         "openai:main": {
+           "provider": "openai",
+           "mode": "token"
+         }
        }
      }
    }
    ```
 
-3. **Write the handler** (`skills/my-skill/my-command.sh`):
+2. Update `secrets/openclaw.env`:
    ```bash
-   #!/bin/bash
-   # Your custom logic here
-   echo "Hello from my-skill!"
+   OPENAI_API_KEY=sk-...
    ```
 
-4. **Make it executable**:
+3. Redeploy:
    ```bash
-   chmod +x skills/my-skill/my-command.sh
+   make push-config deploy
    ```
 
-5. **Push to VPS**:
-   ```bash
-   # From the infra repo:
-   make push-config
-   ```
+See [OpenClaw provider documentation](https://docs.openclaw.ai/providers) for detailed configuration.
 
-   Custom skills in `skills/` are copied to `~/.openclaw/workspace/skills/` on the VPS.
+## Common Workflows
 
-6. **Use in OpenClaw**:
-   - Via chat: "Run my-command"
-   - Via Telegram: `/my-command`
-
-### Skill Structure Reference
-
-OpenClaw skills can include:
-- **Slash commands** — callable via `/command-name`
-- **Hooks** — triggered on events (e.g., before tool execution)
-- **Templates** — prompt templates for common workflows
-- **Tools** — custom tool definitions
-
-For detailed skill development documentation, see the [OpenClaw Skill Development Guide](https://docs.openclaw.ai/skills).
-
-### Included Skills
-
-The default configuration includes these generic ClawHub skills:
-
-| Skill | Description | Use Case |
-|-------|-------------|----------|
-| `yt` | YouTube transcript fetching and video search | "Get transcript for youtube.com/watch?v=..." |
-| `agent-browser` | Headless browser for JavaScript-heavy/paywalled pages | Access dynamic content |
-| `system-monitor` | CPU/RAM/GPU status check | "What's my server's CPU usage?" |
-| `conventional-commits` | Format commit messages per convention | Standardized commit messages |
-
-These are intentionally minimal — add your own skills based on your workflows.
-
-## Workspace Git Sync (Optional)
-
-Back up your `~/.openclaw/workspace` directory to a private git remote automatically. Runs as a Docker sidecar container with built-in cron, pushing to a configurable branch (default: `auto`). You can then manually merge `auto` into `main` via PR whenever you want.
-
-Supports GitHub, GitLab, Bitbucket, and any git remote that accepts HTTPS push with inline authentication.
-
-### Setup
-
-Choose **one** of the two options below — do not set both.
-
-#### Option 1: GitHub shorthand
-
-1. **Create a private GitHub repo** (e.g. `your-username/openclaw-workspace`)
-2. **Create a GitHub PAT** at [github.com/settings/tokens](https://github.com/settings/tokens) with `repo` scope
-3. **Add to your `.env`** (or infra repo's `secrets/openclaw.env`):
-   ```
-   GIT_WORKSPACE_REPO=your-username/openclaw-workspace
-   GIT_WORKSPACE_TOKEN=ghp_your_personal_access_token
-   ```
-
-The token is passed to git via `GIT_ASKPASS` at runtime and is **not** embedded in the remote URL or persisted to `.git/config`.
-
-#### Option 2: Generic git remote
-
-1. **Build the remote URL** with inline authentication for your provider:
-   - GitLab: `https://user:token@gitlab.com/username/repo.git`
-   - Bitbucket: `https://x-token-auth:token@bitbucket.org/username/repo.git`
-2. **Add to your `.env`** (or infra repo's `secrets/openclaw.env`):
-   ```
-   GIT_WORKSPACE_REMOTE=https://user:token@gitlab.com/username/openclaw-workspace.git
-   ```
-
-> **Note:** With this option, the URL (including credentials) is stored in `.git/config` inside the workspace volume. The token is already present in the `.env` file on the VPS, so this does not increase the attack surface.
-
-#### Common settings (both options)
-
-```
-GIT_WORKSPACE_BRANCH=auto
-GIT_WORKSPACE_SYNC_SCHEDULE=0 4 * * *
-```
-
-**Deploy** — the sidecar auto-enables when either `GIT_WORKSPACE_REPO` or `GIT_WORKSPACE_REMOTE` is set:
-```bash
-# From infra repo:
-make push-env && make deploy
-```
-
-The sidecar runs an initial sync on startup, then syncs on the configured cron schedule (default: daily at 4 AM UTC).
-
-### Manual Sync
+### Initial Deployment
 
 ```bash
-# From infra repo:
-make workspace-sync
+# 1. Configure secrets
+cp config/inputs.example.sh config/inputs.sh
+vim config/inputs.sh
+
+# 2. Deploy infrastructure
+source config/inputs.sh
+make init plan apply
+
+# 3. Bootstrap application
+make bootstrap
+
+# 4. Deploy OpenClaw
+make deploy
+
+# 5. Verify
+make status logs
 ```
 
-### Disable
-
-Remove or clear `GIT_WORKSPACE_REPO` / `GIT_WORKSPACE_REMOTE` from your `.env` and redeploy.
-
-## Accessing the Dashboard
-
-The gateway binds to loopback only (`127.0.0.1:18789`). Access it via SSH tunnel:
+### Updating OpenClaw
 
 ```bash
-ssh -N -L 18789:127.0.0.1:18789 openclaw@VPS_IP
+# Pull latest image and restart
+make deploy
+
+# Check logs
+make logs
 ```
 
-Then open `http://localhost:18789` in your browser.
-
-## Managing Secrets
-
-Secrets (API keys, tokens) are managed by the **infra repo**, not this repo.
-This repo only contains `docker/.env.example` as documentation of what
-variables are required.
-
-In the infra repo:
-- Edit `secrets/openclaw.env`
-- Run `make push-env` to push to VPS and restart
-
-## Docker Image Versioning
-
-Images are built locally and pushed to GHCR via `scripts/build-and-push.sh`:
-
-- `ghcr.io/YOUR_USERNAME/openclaw-docker-config/openclaw-gateway:latest` — main gateway image
-- `ghcr.io/YOUR_USERNAME/openclaw-docker-config/workspace-sync:latest` — workspace git sync sidecar
-- Both images also get a `:<sha>` tag pinned to the git commit
-
-**One-time GHCR login (laptop):**
+### Updating Configuration
 
 ```bash
-# Create a PAT at github.com/settings/tokens with write:packages scope
-echo "$GH_TOKEN" | docker login ghcr.io -u $GHCR_USERNAME --password-stdin
+# Edit openclaw.json in config repo
+vim ~/path/to/openclaw-docker-config/config/openclaw.json
+
+# Push and restart
+make push-config deploy
 ```
 
-**Rollback to a previous version:**
+### Backup and Restore
+
+Backups run daily at 02:00 UTC via systemd timer.
 
 ```bash
-# On the VPS, in ~/openclaw/:
-# Edit docker-compose.yml, change :latest to the SHA tag (e.g. :abc1234)
-docker compose pull && docker compose up -d
+# Manual backup
+make backup-now
+
+# List backups
+make ssh
+ls -lh ~/backups/
+
+# Restore from backup
+make restore BACKUP=openclaw-backup-2026-02-08.tar.gz
 ```
 
-**Upgrade OpenClaw itself:** bump `OPENCLAW_VERSION` in `docker/Dockerfile`, commit, push, then run `scripts/build-and-push.sh` followed by `make deploy` from the infra repo.
+### Accessing the Gateway
+
+OpenClaw gateway runs on `127.0.0.1:18789` (localhost only) for security.
+
+**Access via SSH tunnel:**
+```bash
+make tunnel  # Creates tunnel: localhost:18789 -> VPS:18789
+```
+
+Then open `http://localhost:18789` in your browser. The gateway will ask for your **Gateway Token** — paste your `OPENCLAW_GATEWAY_TOKEN` value (from `secrets/openclaw.env`) into the settings field to authenticate.
+
+**Access via Tailscale Serve** (if Tailscale is enabled):
+```bash
+ssh openclaw@<tailscale-ip>
+sudo tailscale serve --bg 18789
+sudo tailscale serve status  # prints your HTTPS URL
+```
+
+Dashboard is then available at `https://openclaw-prod.<tailnet>.ts.net` from any device on your tailnet — no tunnel needed.
+
+> **Note:** Use Serve, not Funnel. Funnel makes the service publicly accessible on the internet.
+> See [OpenClaw Tailscale gateway docs](https://docs.openclaw.ai/gateway/tailscale)
+> for full configuration options including the `allowTailscale` setting.
 
 ## Troubleshooting
 
-### Container won't start
+### Terraform Init Fails
 
+**Cause:** S3 backend credentials not set
+
+**Solution:**
 ```bash
-# From the infra repo:
+source config/inputs.sh
+make init
+```
+
+Or use local state by commenting out the backend block in `infra/terraform/envs/prod/main.tf`.
+
+### Container Won't Start
+
+**Check logs:**
+```bash
 make logs
-# Or SSH in:
-cd ~/openclaw && docker compose logs openclaw-gateway
+make ssh
+docker compose -f ~/openclaw/docker-compose.yml ps
 ```
 
-Check for missing environment variables or invalid config JSON.
+**Common causes:**
 
-### "Permission denied" on config directory
+- Missing environment variables in `.env`
+- Invalid OpenClaw configuration
+- API key issues
 
-Ensure the host directories exist and are owned by the correct user:
+**Fix:**
+```bash
+make push-env    # Re-push environment variables
+make push-config # Re-push OpenClaw config
+make deploy      # Restart
+```
+
+### Can't SSH to VPS
+
+**Check firewall rules:**
+```bash
+grep TF_VAR_ssh_allowed_cidrs config/inputs.sh
+# Check actual firewall
+make ssh-root
+ufw status
+```
+
+If `ssh_allowed_cidrs='[]'` (Tailscale-only mode), `make ssh` connects via the public IP and will time out, that's expected. SSH via your Tailscale IP instead:
+```bash
+ssh openclaw@<tailscale-ip>
+```
+
+Or - as stated above - use the `SERVER_IP` variable to point `make ssh` at the Tailscale hostname:
+```bash
+# In config/inputs.sh
+export TF_VAR_ssh_allowed_cidrs='[]'
+export SERVER_IP="openclaw-prod"   # Tailscale MagicDNS — stable across rebuilds
+source config/inputs.sh && make plan && make apply
+```
+
+Emergency access: [Hetzner web console](https://console.hetzner.cloud/) → server → Console.
+
+### Permission Denied on ~/.openclaw
+
+If you see `Permission denied` when creating directories under `~/.openclaw` (e.g. during `make setup-auth`), Docker likely took ownership of the directory via the volume mount. This can happen if you ran `make deploy` before bootstrap finished, or if you're re-running bootstrap after a previous deploy.
+
+**Fix:**
+```bash
+ssh openclaw@VPS_IP "sudo chown -R openclaw:openclaw ~/.openclaw"
+```
+
+Then re-run `make bootstrap` or `make setup-auth`.
+
+### Bootstrap Fails
+
+**Verify prerequisites:**
+```bash
+# Check CONFIG_DIR is set and exists
+echo $CONFIG_DIR
+ls $CONFIG_DIR/docker/docker-compose.yml
+
+# Verify GHCR credentials
+docker login ghcr.io -u YOUR_GITHUB_USERNAME
+```
+
+### SSH Host Key Changed
+
+**Cause:** Destroyed and re-provisioned the VPS — new server has a different
+host key at the same public IP.
+
+**Error:** `WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!`
+
+**Fix:**
 
 ```bash
-sudo mkdir -p /home/openclaw/.openclaw/workspace
-sudo chown -R 1000:1000 /home/openclaw/.openclaw
+ssh-keygen -R <old_vps_ip>
+# Then retry — SSH will prompt you to accept the new key.
 ```
 
-### Telegram bot not responding
+### API Billing Error
 
-- Check secrets: `make push-env` from infra repo to re-push
-- Check that no other process is polling the same bot token
-- Restart: `make deploy` from infra repo
+**Anthropic API key issues:**
 
-### Config validation fails
-
+If using API key (not subscription):
 ```bash
-bash scripts/validate-config.sh
+# Check key is set
+make ssh
+grep ANTHROPIC_API_KEY ~/openclaw/.env
+
+# Verify key has credits at console.anthropic.com
 ```
 
-Common causes:
-- Invalid JSON syntax (missing comma, trailing comma)
-- Raw API key accidentally pasted into `openclaw.json`
-
-### Check VPS health
-
+If using Claude subscription:
 ```bash
-# From the infra repo:
-make status
+# Re-run setup-auth
+make setup-auth
+
+# Verify auth profile exists
+make ssh
+cat ~/.openclaw/agents/main/agent/auth-profiles.json
 ```
 
-## Enable Git Hooks
+## Security Considerations
 
-To activate the pre-commit validation hook:
+See [SECURITY.md](SECURITY.md) for the full security policy and threat model.
 
-```bash
-git config core.hooksPath .githooks
+### SSH Access
+
+- Default allows SSH from anywhere (`0.0.0.0/0`) — restrict before production
+- **Option A:** Restrict to your IP via `TF_VAR_ssh_allowed_cidrs`
+- **Option B:** Enable Tailscale and set `ssh_allowed_cidrs='[]'` — zero public SSH exposure
+- Use SSH keys, not passwords
+- Rotate keys regularly
+- See [Firewall Rules](#firewall-rules) for setup steps
+
+### Secrets Management
+
+- Never commit `config/inputs.sh` or `secrets/openclaw.env`
+- Use environment variables for all credentials
+- Rotate API tokens periodically
+- Review `.gitignore` before committing
+
+### Firewall
+
+- Gateway binds to `127.0.0.1` (localhost only) — never exposed directly
+- Access via SSH tunnel or Tailscale Serve
+- `TF_VAR_additional_tcp_ports` opens ports in both the Hetzner Cloud Firewall and UFW on the VPS
+- Use `TF_VAR_additional_tcp_ports` only for services that should be publicly reachable
+- Review `infra/terraform/modules/hetzner-vps/main.tf` for the full firewall rule set
+
+### API Keys
+
+- Monitor API usage and costs
+- Set spending limits at provider dashboards
+- Prefer subscription auth over API keys when available
+- Never expose keys in logs or errors
+
+### Updates
+
+- Keep Terraform providers updated
+- Update OpenClaw regularly for security patches
+- Monitor security advisories for dependencies
+- Review cloud-init script before changes
+
+## Project Structure
+
 ```
+.
+├── infra/
+│   ├── terraform/
+│   │   ├── globals/          # Shared configuration
+│   │   ├── envs/prod/        # Production environment
+│   │   └── modules/          # Reusable modules
+│   │       └── hetzner-vps/  # VPS module
+│   └── cloud-init/
+│       └── user-data.yml.tpl # Server initialization
+├── deploy/                   # Deployment scripts
+│   ├── bootstrap.sh          # Initial setup
+│   ├── deploy.sh             # Deploy/update
+│   ├── backup.sh             # Backup script
+│   └── restore.sh            # Restore script
+├── scripts/                  # Utility scripts
+│   ├── push-env.sh           # Push secrets to VPS
+│   ├── push-config.sh        # Push config to VPS
+│   └── setup-auth.sh         # Setup subscription auth
+├── config/
+│   └── inputs.example.sh     # Configuration template
+└── secrets/
+    └── openclaw.env.example  # Secrets template
+```
+
+## Infrastructure Costs
+
+See [Hetzner Cloud pricing](https://www.hetzner.com/cloud#pricing) for current rates. This setup uses a small shared VPS (default: CX23) plus minimal object storage for Terraform state.
+
+> **Note:** Prices exclude Anthropic/OpenAI API costs.
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+**Ways to contribute:**
+- Report bugs via [GitHub Issues](https://github.com/andreesg/openclaw-terraform-hetzner/issues)
+- Submit feature requests
+- Improve documentation
+- Submit pull requests
+- Share your deployment experiences
+
+## Related Projects
+
+- **[OpenClaw](https://github.com/openclaw/openclaw)** — The AI coding assistant this infrastructure deploys
+- **[openclaw-docker-config](https://github.com/andreesg/openclaw-docker-config)** — Docker and OpenClaw configuration (companion repo)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+- **Issues:** [GitHub Issues](https://github.com/andreesg/openclaw-terraform-hetzner/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/andreesg/openclaw-terraform-hetzner/discussions)
+- **OpenClaw Docs:** [docs.openclaw.ai](https://docs.openclaw.ai/)

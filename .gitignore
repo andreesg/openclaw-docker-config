@@ -1,7 +1,95 @@
-.env
-*.key
+# =============================================================================
+# Terraform
+# =============================================================================
+
+# Local .terraform directories
+.terraform/
+.terraform.lock.hcl
+
+# Terraform state files
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Variable files (may contain secrets)
+*.tfvars
+!*.tfvars.example
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform plan files
+*.tfplan
+tfplan
+
+# =============================================================================
+# Secrets and Credentials
+# =============================================================================
+
+# SSH private keys
 *.pem
-credentials/
-sessions/
-node_modules/
+*.key
+id_rsa
+id_ed25519
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Config files with secrets
+config/inputs.sh
+!config/inputs.example.sh
+
+# Secrets directory (real env files with API keys)
+secrets/*
+!secrets/*.example
+
+# =============================================================================
+# IDE and Editor
+# =============================================================================
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains
+.idea/
+
+# Vim
+*.swp
+*.swo
+*~
+
+# =============================================================================
+# OS Generated
+# =============================================================================
+
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# =============================================================================
+# Backups
+# =============================================================================
+
+*.backup
+*.bak
+*.old

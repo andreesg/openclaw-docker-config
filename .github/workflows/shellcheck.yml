@@ -1,0 +1,27 @@
+name: ShellCheck
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: Lint Shell Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run ShellCheck on deploy scripts
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: './deploy'
+          severity: warning
+
+      - name: Run ShellCheck on utility scripts
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: './scripts'
+          severity: warning
